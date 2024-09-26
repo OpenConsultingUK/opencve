@@ -28,9 +28,9 @@ add-config-files() {
 
     echo "--> Copying either SSL or NON-SSL template.example for Nginx"
     if [ -d "./certs/live/$EXTERNAL_WEBSERVER_DOMAIN" ]; then
-        envsubst $SHELL_FORMAT < conf/template.example.nginx.ssl.default.conf > ./conf/default.conf
+        envsubst $SHELL_FORMAT < conf/template.example.nginx.ssl.default.conf > ./conf/opencve.conf.template
     else
-        envsubst $SHELL_FORMAT < conf/opencve.conf.template > ./conf/default.conf
+        envsubst $SHELL_FORMAT < conf/opencve.conf.template > ./conf/opencve.conf.template
     fi
 
     echo ""
