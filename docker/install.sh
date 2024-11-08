@@ -18,6 +18,14 @@ add-config-files() {
     cp ./conf/opencve.conf.template.example ./conf/opencve.conf.template
     cp ./conf/default.conf.template.example ./conf/default.conf.template
 
+    # Using copy -n, here to avoid overwriting the config files once they are created
+
+    echo "--> Copying .env file for docker compose"
+    cp -n ./conf/.env.example ./.env
+    # Load the environment variables in current shell
+    source .env
+    SHELL_FORMAT="$(grep -o '^[^#]*' .env | grep -o '^[A-Za-z_][A-Za-z0-9_]*' | sed 's/^/$/' | tr '\n' ' ')"
+
     echo "--> Adding Airflow configuration file"
     cp -n ../scheduler/airflow.cfg.example ../scheduler/airflow.cfg
 
