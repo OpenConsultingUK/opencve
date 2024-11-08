@@ -26,12 +26,13 @@ add-config-files() {
     cp -n ../web/opencve/conf/settings.py.example ../web/opencve/conf/settings.py
     cp -n ../web/opencve/conf/.env.example ../web/opencve/conf/.env
 
-    echo "--> Copying either SSL or NON-SSL template.example for Nginx"
+    echo "--> Copying opencve.conf.template for Nginx"
     if [ -d "./certs/live/$EXTERNAL_WEBSERVER_DOMAIN" ]; then
         envsubst $SHELL_FORMAT < conf/template.example.nginx.ssl.default.conf > ./conf/opencve.conf.template
     else
-        envsubst $SHELL_FORMAT < conf/opencve.conf.template > ./conf/opencve.conf.template
+        envsubst $SHELL_FORMAT < ./conf/opencve.conf.template.example > ./conf/opencve.conf.template
     fi
+    cp ./conf/default.conf.template.example ./conf/default.conf.template
 
     echo ""
     echo "/!\ Don't forget to update the .env and settings.py files with your inputs before starting the docker compose stack:"
