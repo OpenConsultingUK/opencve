@@ -48,3 +48,37 @@ You can use **for free** these features on the public instance: [https://www.ope
 2. **SaaS Version**: Alternatively, you can use the hosted version of OpenCVE, available at [https://www.opencve.io](https://www.opencve.io). This option requires no setup and is ready to use out of the box.
 
 You can explore the [documentation](https://docs.opencve.io) for detailed instructions like the installation, the notifications configuration or the API usage.
+
+## SSL Deployment
+
+```bash
+#!/bin/bash
+
+# Navigate to docker directory and prepare the environment
+cd docker
+
+# Run "prepare" only if .env file does not exist
+if [[ ! -f .env ]]; then
+    ./install.sh prepare
+fi
+
+# Load environment variables from .env file
+source .env
+
+# Determine the correct NGINX configuration based on SSL availability
+if [[ "$OPENCVE_DOMAIN" == *"https"* && -d "./certs/live/$OPENCVE_DOMAIN" ]]; then
+    echo "Using SSL configuration"
+    NGINX_CONF="./conf/opencve.ssl.conf.template.example"
+else
+    NGINX_CONF="./conf/opencve.conf.template.example"
+fi
+
+# Prepare environment variable list for substitution
+SHELL_FORMAT=$(grep -o '^[A-Za-z_][A-Za-z0-9_]*' .env | sed 's/^/$/' | tr '\n' ' ')
+
+# Substitute environment variables in the chosen NGINX configuration template
+envsubst "$SHELL_FORMAT" < "$NGINX_CONF" > ./conf/opencve.conf.template
+
+# Start the application
+./install.sh start
+```

@@ -1,7 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-
+certs/
 # Distribution / packaging
 build/
 dist/
@@ -35,3 +35,4 @@ scheduler/airflow-webserver.pid
 web/.pytest_cache/
 web/emails/
 docker/conf/opencve.conf.template
+docker/conf/default.conf.template
