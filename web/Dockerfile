@@ -12,7 +12,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
 
 WORKDIR /app
 
-RUN git clone --depth 1 -b "${OPENCVE_VERSION}" --single-branch "${OPENCVE_REPOSITORY}"
+RUN git clone --depth 1 -b "${OPENCVE_VERSION}" --single-branch "${OPENCVE_REPOSITORY}" .
 
 RUN python3 -m venv /app/venv
 
@@ -20,7 +20,11 @@ ENV PATH="/app/venv/bin:$PATH"
 
 RUN python3 -m pip install --upgrade pip
 
-RUN python3 -m pip install -r opencve/web/requirements.txt
+WORKDIR /app/opencve/web
+
+COPY requirements.txt .
+
+RUN python3 -m pip install -r requirements.txt
 
 # OpenCVE Image
 FROM base
@@ -47,4 +51,4 @@ WORKDIR /app/opencve/web/
 EXPOSE 8000
 
 ENTRYPOINT ["gunicorn", "opencve.wsgi"]
-CMD ["-b" ,"0.0.0.0:8000"]
+CMD ["-b", "0.0.0.0:8000"]
