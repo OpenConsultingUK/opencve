@@ -11,12 +11,15 @@ x-airflow-common: &airflow-common
     - ../scheduler/dags/:/opt/airflow/dags
     - ../scheduler/airflow.cfg:/opt/airflow/airflow.cfg:ro
     - repositories:/home/airflow/repositories/
+    - ../../../transfers_dir/:/transfer_received/
   depends_on:
     &airflow-common-depends-on
     redis:
       condition: service_healthy
     postgres:
       condition: service_healthy
+  networks:
+    - internal_only
 
 services:
   airflow-webserver:
@@ -35,6 +38,9 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+    networks:
+      - default
+      - internal_only
 
   airflow-scheduler:
     <<: *airflow-common
@@ -104,6 +110,8 @@ services:
       - repositories:/app/repositories/:ro
       - staticfiles:/app/static/
     restart: on-failure
+    networks:
+      - internal_only
 
   nginx:
     container_name: nginx
@@ -115,6 +123,9 @@ services:
       - ./conf/default.conf.template:/etc/nginx/templates/default.conf.template:ro
       - staticfiles:/var/www/opencve/static/:ro
     restart: on-failure
+    networks:
+      - default
+      - internal_only
 
   redis:
     container_name: redis
@@ -125,6 +136,8 @@ services:
        retries: 5
        start_period: 5s
     restart: on-failure
+    networks:
+    - internal_only
 
   postgres:
     container_name: postgres
@@ -143,8 +156,15 @@ services:
     volumes:
       - ./db:/docker-entrypoint-initdb.d
       - postgres-db:/var/lib/postgreqsql/data
+    networks:
+    - internal_only
 
 volumes:
     postgres-db:
     staticfiles:
     repositories:
+
+networks:
+  internal_only:
+    internal: true
+    driver: bridge
