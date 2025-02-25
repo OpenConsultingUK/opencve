@@ -62,7 +62,7 @@ for REPO in "${REPOS[@]}"; do
             mkdir -p "$PATCH_OUTPUT_DIR"
 
             echo "Generating patch files for changes in $BASENAME..."
-            git format-patch "$LOCAL_SHA..$REMOTE_SHA" -o "$PATCH_OUTPUT_DIR/$PREFIX"
+            git format-patch "$LOCAL_SHA..$REMOTE_SHA" -o "$PATCH_OUTPUT_DIR"
 
             echo "Patch file created: ${PATCH_OUTPUT_DIR}/${PREFIX}"
 
@@ -82,3 +82,7 @@ for REPO in "${REPOS[@]}"; do
     fi
 
 done
+
+# Apply the patch file to the repository without internet connection
+#git am < ~/transfers_dir/opencve-kb/path/to/patch/file.
+#anything goes wrong run "git am --abort" and re-run above command.
