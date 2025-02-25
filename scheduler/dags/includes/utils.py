@@ -12,6 +12,7 @@ from git.repo import Repo
 from includes.constants import KB_LOCAL_REPO
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pendulum.datetime import DateTime
+from pendulum import now
 
 
 def divide_list(iterable, n):
@@ -159,7 +160,9 @@ def list_commits(logger: Logger, start: DateTime, end: DateTime) -> List[Commit]
     # We'll use the interval dates to list commits during this period, but
     # git log --before and --after options are both included, so we need to
     # subtract 1 second to the end date in order to avoid duplicates commits.
-    end = end.subtract(seconds=1)
+    start = start.add(minutes=55)
+    # end = end.subtract(seconds=1)
+    end = now()
 
     logger.info("Listing commits between %s and %s", start, end)
     repo = Repo(repo_path)
