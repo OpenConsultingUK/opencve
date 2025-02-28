@@ -17,7 +17,7 @@ class GitFetchOperator(KindOperator):
         # Set Git user name and email
         repo.config_writer().set_value("user", "name", "Your Name").release()
         repo.config_writer().set_value("user", "email", "you@example.com").release()
-
+        
         remotes = repo.remotes
         if not remotes:
             raise AirflowException(f"Repository {repo_path} has no remote")
