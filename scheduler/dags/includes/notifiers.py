@@ -15,6 +15,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from includes.constants import KB_LOCAL_REPO
 from includes.utils import get_smtp_conf, get_smtp_message
+from includes.discord_notifer import Embed, EmbedAuthor, WebhookMessage, EmbedFooter, EmbedProvider, EmbedThumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,14 @@ class BaseNotifier:
         "medium": "#f39c12",
         "low": "#00c0ef",
         "none": "#c4c4c4",
+    }
+
+    SEVERITY_COLORS_INT = {
+        "critical": 9906974,
+        "high": 14502713,
+        "medium": 15965202,
+        "low": 49391,
+        "none": 12895428,
     }
 
     def __init__(
@@ -70,9 +79,9 @@ class BaseNotifier:
         subscriptions = self.notification.get("project_subscriptions", [])
 
         payload = {
-            "organization": self.notification["organization_name"],
-            "project": self.notification["project_name"],
-            "notification": self.notification["notification_name"],
+            "organization": self.notification.get("organization_name"),
+            "project": self.notification.get("project_name"),
+            "notification": self.notification.get("notification_name"),
             "subscriptions": {
                 "raw": sorted(subscriptions),
                 "human": sorted(self.humanize_subscriptions(subscriptions)),
@@ -87,11 +96,13 @@ class BaseNotifier:
         }
 
         for change in self.changes:
-            # Compare the vendors between the CVE and the project subscriptions
+            #  Set the subscriptions to cve_vendors
             matched_subscriptions = list(
                 set(subscriptions).intersection(change["cve_vendors"])
             )
             payload["matched_subscriptions"]["raw"].update(matched_subscriptions)
+            # matched_subscriptions = change["cve_vendors"]
+            # payload["matched_subscriptions"]["raw"].update(matched_subscriptions)
 
             # Get the CVE data from KB
             with open(KB_LOCAL_REPO / change["change_path"]) as f:
@@ -106,22 +117,19 @@ class BaseNotifier:
             if cve_data["opencve"]["metrics"]["cvssV3_1"]["data"]:
                 score = cve_data["opencve"]["metrics"]["cvssV3_1"]["data"]["score"]
 
-            payload["changes"].append(
-                {
-                    "cve": {
-                        "cve_id": change["cve_id"],
-                        "description": cve_data["opencve"]["description"]["data"],
-                        "cvss31": score,
-                        "subscriptions": {
-                            "raw": sorted(matched_subscriptions),
-                            "human": sorted(
-                                self.humanize_subscriptions(matched_subscriptions)
-                            ),
-                        },
-                    },
-                    "events": kb_change[0]["data"] if kb_change else [],
-                }
-            )
+            embed_data = {
+                "title": change["cve_id"],
+                "description": cve_data["opencve"]["description"]["data"],
+                "url": f"http://129.146.98.230/cve/{change['cve_id']}",
+                "timestamp": arrow.get(cve_data["opencve"]["updated"]["data"]).datetime.isoformat(),
+                "color": self.SEVERITY_COLORS_INT[self.get_severity_str(score)],
+                "footer": {"text": str(set(self.humanize_subscriptions(matched_subscriptions)))},
+                "provider": {"name": cve_data["opencve"]["description"]["provider"]},
+                "author": {"name": f"{score} {self.get_severity_str(score).title()}"},
+                "thumbnail": {"url": "https://www.w3schools.com/html/pic_mountain.jpg"},
+                #"image": {"url": "https://upload.wikimedia.org/wikipedia/commons/b/b5/Reflet-tour-Eiffel-Paris-Luc-Viatour.jpg"},
+            }
+            payload["changes"].append(embed_data)
 
         # Transform the matched_subscriptions set into a list
         payload["matched_subscriptions"]["raw"] = sorted(
@@ -133,8 +141,13 @@ class BaseNotifier:
 
         # Prepare the title
         payload["title"] = self.get_title(payload)
-
         return payload
+
+    @staticmethod
+    def convert_to_discord_embed(payload: dict) -> dict:
+        # Manually construct the Discord payload
+        discord_payload = {"embeds": payload["changes"][:10]}
+        return discord_payload
 
     @staticmethod
     def get_severity_str(score):
@@ -177,27 +190,31 @@ class WebhookNotifier(BaseNotifier):
             str(len(self.changes)),
         )
 
+        payload = self.prepare_payload()
+        discord_payload = self.convert_to_discord_embed(payload)
+
+        logger.debug("Discord Payload: %s", json.dumps(discord_payload, indent=2)) # Log the payload
+
         try:
             async with self.session.post(
                 self.url,
-                json=self.prepare_payload(),
+                json=discord_payload,
                 headers=self.headers,
                 timeout=self.request_timeout,
             ) as response:
                 json_response = await response.json()
                 status_code = response.status
         except aiohttp.ClientConnectorError as e:
-            logger.error("ClientConnectorError(%s): %s", self.url, e)
+            logger.exception("ClientConnectorError(%s): %s", self.url, e)
         except aiohttp.ClientResponseError as e:
-            logger.error("ClientResponseError(%s): %s", self.url, e)
+            logger.exception("ClientResponseError(%s): %s", self.url, e)
         except asyncio.TimeoutError:
-            logger.error(
-                "TimeoutError(%s): the request timeout of %s has been exceeded",
-                self.url,
+            logger.exception(
+                "TimeoutError(%s): %s", self.url,
                 f"{str(self.request_timeout)} seconds",
             )
         except Exception as e:
-            logger.error("Exception(%s): %s", self.url, e)
+            logger.exception("Exception(%s): %s", self.url, e)
         else:
             logger.info("Result(%s): %s", self.url, status_code)
             logger.debug("Response(%s): %s", self.url, json_response)

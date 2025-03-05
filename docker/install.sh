@@ -84,7 +84,7 @@ display-and-exec() {
         log "> done $_DONE"
     else
         log "> $_RED command failed: ${_CMD[*]}"
-        exit $_EXIT_STATUS
+        #exit $_EXIT_STATUS
     fi
 }
 

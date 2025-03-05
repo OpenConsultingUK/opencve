@@ -1,60 +1,65 @@
-# OPENCVE DOCKER COMPOSE
----
-name: opencve
-x-airflow-common: &airflow-common
-  build:
-    context: ../scheduler
-    dockerfile: Dockerfile
-  env_file:
-    - .env
-  volumes:
-    - ../scheduler/dags/:/opt/airflow/dags
-    - ../scheduler/airflow.cfg:/opt/airflow/airflow.cfg:ro
-    - repositories:/home/airflow/repositories/
-  depends_on:
-    &airflow-common-depends-on
-    redis:
-      condition: service_healthy
-    postgres:
-      condition: service_healthy
-
 services:
   airflow-webserver:
-    <<: *airflow-common
+    build:
+      context: ../scheduler
+      dockerfile: Dockerfile
     container_name: airflow-webserver
     command: webserver
     ports:
       - "${AIRFLOW_WEBSERVER_PORT:-8080}:8080"
+    depends_on:
+      - airflow-init
+    volumes:
+      - ../scheduler/dags/:/opt/airflow/dags
+      - ../scheduler/airflow.cfg:/opt/airflow/airflow.cfg:ro
+      # - repositories:/home/airflow/repositories/
+    env_file:
+      - .env
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 60s
       timeout: 30s
       retries: 5
       start_period: 30s
-    restart: on-failure
-    depends_on:
-      airflow-init:
-        condition: service_completed_successfully
 
   airflow-scheduler:
-    <<: *airflow-common
+    build:
+      context: ../scheduler
+      dockerfile: Dockerfile
     container_name: airflow-scheduler
     command: scheduler
+    depends_on:
+      - airflow-init
+    volumes:
+      - ../scheduler/dags/:/opt/airflow/dags
+      - ../scheduler/airflow.cfg:/opt/airflow/airflow.cfg:ro
+      # - repositories:/home/airflow/repositories/
+    env_file:
+      - .env
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 60s
       timeout: 30s
       retries: 5
       start_period: 30s
-    restart: on-failure
-    depends_on:
-      airflow-init:
-        condition: service_completed_successfully
 
   airflow-worker:
-    <<: *airflow-common
+    build:
+      context: ../scheduler
+      dockerfile: Dockerfile
     container_name: airflow-worker
     command: celery worker
+    depends_on:
+      - airflow-init
+    volumes:
+      - ../scheduler/dags/:/opt/airflow/dags
+      - ../scheduler/airflow.cfg:/opt/airflow/airflow.cfg:ro
+      # - repositories:/home/airflow/repositories/
+    env_file:
+      - .env
+    restart: on-failure
     healthcheck:
       test:
         - "CMD-SHELL"
@@ -64,19 +69,14 @@ services:
       retries: 5
       start_period: 30s
     environment:
-      # Required to handle warm shutdown of the celery workers properly
-      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
       DUMB_INIT_SETSID: "0"
-    restart: on-failure
-    depends_on:
-      airflow-init:
-        condition: service_completed_successfully
 
   airflow-init:
-    <<: *airflow-common
+    build:
+      context: ../scheduler
+      dockerfile: Dockerfile
     container_name: airflow-init
     entrypoint: /bin/bash
-    # yamllint disable rule:line-length
     command:
       - -c
       - exec /entrypoint airflow version
@@ -86,18 +86,24 @@ services:
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
     user: "0:0"
-
-  webserver:
-    container_name: webserver
+    volumes:
+      - ../scheduler/dags/:/opt/airflow/dags
+      - ../scheduler/airflow.cfg:/opt/airflow/airflow.cfg:ro
+      # - repositories:/home/airflow/repositories/
     env_file:
       - .env
+
+  webserver:
     build:
       context: ../web/
+      dockerfile: Dockerfile
       args:
         - OPENCVE_REPOSITORY=${OPENCVE_REPOSITORY}
         - OPENCVE_VERSION=${OPENCVE_VERSION}
         - GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS}
-      dockerfile: Dockerfile
+    container_name: webserver
+    env_file:
+      - .env
     volumes:
       - ../web/opencve/conf/.env:/app/opencve/web/opencve/conf/.env:ro
       - ../web/opencve/conf/settings.py:/app/opencve/web/opencve/conf/settings.py:ro
@@ -106,10 +112,10 @@ services:
     restart: on-failure
 
   nginx:
-    container_name: nginx
     image: nginx:bookworm
+    container_name: nginx
     ports:
-       - "${OPENCVE_PORT:-80}:80"
+      - "${OPENCVE_PORT:-80}:80"
     volumes:
       - ./conf/opencve.conf.template:/etc/nginx/templates/opencve.conf.template:ro
       - ./conf/default.conf.template:/etc/nginx/templates/default.conf.template:ro
@@ -117,34 +123,35 @@ services:
     restart: on-failure
 
   redis:
-    container_name: redis
     image: redis/redis-stack:latest
+    container_name: redis
+    # ports:
+    #   - "6379:6379"
+    restart: on-failure
     healthcheck:
        test: ["CMD", "redis-cli", "ping"]
        interval: 10s
        retries: 5
        start_period: 5s
-    restart: on-failure
 
   postgres:
-    container_name: postgres
     image: postgres:${POSTGRES_VERSION:-15}
+    container_name: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-opencve}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opencve}
       POSTGRES_DB: opencve
-      PGDATA: /var/lib/postgreqsql/data
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d
+      - postgres-db:/var/lib/postgresql/data
     restart: on-failure
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "$POSTGRES_USER"]
       interval: 10s
       retries: 5
       start_period: 5s
-    volumes:
-      - ./db:/docker-entrypoint-initdb.d
-      - postgres-db:/var/lib/postgreqsql/data
 
 volumes:
-    postgres-db:
-    staticfiles:
-    repositories:
+  postgres-db:
+  staticfiles:
+  repositories:
