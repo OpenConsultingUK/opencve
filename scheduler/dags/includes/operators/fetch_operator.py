@@ -1,5 +1,4 @@
 import pathlib
-
 import git
 from airflow.exceptions import AirflowException
 from includes.operators import KindOperator
@@ -23,9 +22,13 @@ class GitFetchOperator(KindOperator):
         self.log.info(f"Local HEAD is {last_commit}")
 
         self.log.info(f"Fetching last changes from {repo_path}...")
-        tracking_branch = repo.active_branch.tracking_branch()
         repo.remotes.origin.fetch()
-        repo.git.reset("--hard", tracking_branch.name)
+        try:
+            repo.git.reset("--hard", "origin/main")
+        except git.exc.GitCommandError as e:
+            self.log.warning(f"Failed to reset to origin/main: {e}")
+            self.log.info("Attempting to reset to FETCH_HEAD...")
+            repo.git.reset("--hard", "FETCH_HEAD")
 
         if last_commit == repo.head.commit:
             self.log.info("No change detected")
