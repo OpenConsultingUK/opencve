@@ -17,6 +17,8 @@ x-airflow-common: &airflow-common
       condition: service_healthy
     postgres:
       condition: service_healthy
+    network:
+      - my_isolated_network
 
 services:
   airflow-webserver:
@@ -99,6 +101,8 @@ services:
       - repositories:/app/repositories/:ro
       - staticfiles:/app/static/
     restart: on-failure
+    network:
+      - my_isolated_network
 
   nginx:
     image: nginx:bookworm
@@ -109,6 +113,8 @@ services:
       - ./conf/default.conf.template:/etc/nginx/templates/default.conf.template:ro
       - staticfiles:/var/www/opencve/static/:ro
     restart: on-failure
+    network:
+      - my_isolated_network
 
   redis:
     image: redis/redis-stack:latest
@@ -118,6 +124,8 @@ services:
        retries: 5
        start_period: 5s
     restart: on-failure
+    network:
+      - my_isolated_network
 
   postgres:
     image: postgres:${POSTGRES_VERSION:-15}
@@ -135,8 +143,15 @@ services:
     volumes:
       - ./db:/docker-entrypoint-initdb.d
       - postgres-db:/var/lib/postgreqsql/data
+    network:
+      - my_isolated_network
 
 volumes:
     postgres-db:
     staticfiles:
     repositories:
+
+network:
+  my_isolated_network:
+    drive: bridge
+    internal: true
